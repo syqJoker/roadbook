@@ -1,0 +1,23 @@
+{
+  "name": "roadbook",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "http-server -p 8880"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syqJoker/roadbook.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/syqJoker/roadbook/issues"
+  },
+  "homepage": "https://github.com/syqJoker/roadbook#readme",
+  "dependencies": {
+    "http-server": "^0.12.1"
+  }
+}

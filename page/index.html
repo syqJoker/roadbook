@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%">
+<head>
+    <meta charset="UTF-8">
+    <title>路书</title>
+    <style>
+        #container {width:100%; }
+        /*右键样式 start */
+        .my_context_menu{
+            position: relative;
+            min-width: 12rem;
+            background-color: aliceblue;
+            width: 80px;
+            padding: 0;
+        }
+        .my_context_menu .context_menu_sub{
+            cursor: pointer;
+            height: 30px;
+            line-height: 30px;
+            padding-left: 8px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+        .my_context_menu .context_menu_sub.danger{
+            color: red;
+            font-weight: bolder;
+        }
+        .my_context_menu div:hover{
+            background: #9eccc5;
+        }
+        /*右键样式 end */
+
+        .nopadding{
+            padding: 0!important;
+        }
+        .paddingLeft5{
+            padding: 12px 5px !important;
+        }
+        .card-body p{
+            margin: 0!important;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+</head>
+<body style="height: 100%">
+<div style="height: 50px;text-align: left;line-height: 50px;"><span style="font-size: 25px">路书</span><span>xxx</span></div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="nopadding col-lg-9 col-xl-10">
+            <div id="container"></div>
+        </div>
+        <div class="nopadding col-lg-3 col-xl-2" id="right">
+        </div>
+    </div>
+</div>
+</body>
+<script type="text/javascript" src="https://cdn.bootcss.com/jquery/3.4.1/jquery.min.js"></script>
+<script type="text/javascript" src="https://webapi.amap.com/maps?v=1.4.15&key=b9e85f9860d919f04446258186ac3e2f"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.4.1/dist/jquery.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+<script>
+    var height = window.innerHeight - 60;
+    $('#container').height(height);
+    var map = new AMap.Map('container', {
+        zoom:11,//级别
+        viewMode:'2D',
+        mapStyle:"amap://styles/macaron"
+    });
+
+
+    // 菜单内容
+    var contentMenuDev = [
+        '<div class="my_context_menu">',
+        '<div class="context_menu_sub" onclick="map.zoomOut()">缩小</div>',
+        '<div class="context_menu_sub" onclick="map.zoomIn()">放大</div>',
+        '<div class="context_menu_sub" onclick="menu.addMarkerMenu()">Mark</div>',
+        '<div class="context_menu_sub danger" onclick="map.zoomIn()">清空所有</div>',
+        '</div>'
+    ];
+    var menu = new AMap.ContextMenu({
+        content: contentMenuDev.join('')
+    });
+    var menuProto = menu.prototype?menu.prototype:menu.__proto__;
+    menuProto.addMarkerMenu = function () {
+        var position = this.position;
+        var marker = new AMap.Marker({
+            map: map,
+            position: position //基点位置
+        });
+        if(rightStorage.markers.length>99){
+            alert("诶我草了，点太多了，电脑受不了");
+            return ;
+        }
+        var eachMarker = {
+            marker:marker,
+            position:position
+        };
+        AMap.plugin(['AMap.Geocoder','AMap.Driving'],function(){//异步加载插件
+            var plus = new AMap.Geocoder();
+            plus.getAddress(position,function (status,res) {
+                if(status === 'complete'){
+                    var index = rightStorage.markers.length;
+                    eachMarker["index"] = index;
+                    eachMarker["address"] = res.regeocode.formattedAddress;
+                    eachMarker["addressInfos"] = res.regeocode.addressComponent;
+                    if(index>0){
+                        var preMarker = rightStorage.markers[index-1];
+                        var driverPlus = new AMap.Driving({map:map});
+                        console.log(preMarker.position, eachMarker.position);
+                        driverPlus.search(preMarker.position, eachMarker.position, function(status, result) {
+                            // result 即是对应的驾车导航信息，相关数据结构文档请参考  https://lbs.amap.com/api/javascript-api/reference/route-search#m_DrivingResult
+                            if (status === 'complete') {
+                                console.log(result);
+                                eachMarker['routes'] = result.routes;
+                            } else {
+                                alert('获取驾车数据失败：' + result)
+                            }
+                            rightStorage.markers.push(eachMarker);
+                            reloadRight();
+                        });
+                    }else{
+                        rightStorage.markers.push(eachMarker);
+                        reloadRight();
+                    }
+                }
+            });
+        });
+        this.close();
+    };
+    map.on('rightclick', function(e) {
+        menu.open(map, e.lnglat);
+        menuProto.position = e.lnglat;
+    });
+
+
+    //右侧刷新
+    var rightStorage = {
+        markers:[]
+    };
+    var reloadRight = function () {
+        $('#right').empty();
+        var totalLength = 0;
+        var totalTime = 0;
+        for(var i=0;i<rightStorage.markers.length;i++){
+            var eachMarker = rightStorage.markers[i];
+            console.log(eachMarker);
+            var card = $('<div class="card"></div>');
+            var header = $('<div class="card-header paddingLeft5"></div>');
+            var body = $('<div class="card-body" style="font-size: 12px"></div>');
+            var defaultHeaderIndex = "「"+(i+1)+"」";
+            var bodyInfo = "";
+            if(i==0) {
+                defaultHeaderIndex = "「起」";
+            }else if(i==rightStorage.markers.length-1){
+                defaultHeaderIndex = "「终」";
+            }
+            var routes = "";
+            if(eachMarker.routes){
+                var currentRoute = eachMarker.routes[0];
+                if(currentRoute.distance){
+                    totalLength = totalLength + currentRoute.distance;
+                    routes = routes + transformLength(currentRoute.distance);
+                }
+                if(currentRoute.time){
+                    totalTime = totalTime + currentRoute.time;
+                    routes = routes + transformTime(currentRoute.time);
+                }
+            }
+
+            if(i>0){
+                body.append("<p>从："+rightStorage.markers[i-1].address+"</p>")
+                    .append("<p>到："+eachMarker.address+"</p>");
+                if(eachMarker.routes){
+                    var currentRoute = eachMarker.routes[0];
+                    if(currentRoute.restrictio==1){
+                        body.append("<p>存在限行道路无法规避，请注意！</p>")
+                    }
+                    if(currentRoute.tolls_distance > 0){
+                        body.append("<p>收费路段长"+transformLength(currentRoute.tolls_distance)+" 收费金额"+currentRoute.tolls+"元</p>")
+                            .append("<p>驾车规划策略"+currentRoute.policy+"</p>");
+                    }
+                    if(currentRoute.steps){
+                        var stepDiv = $('<div style="max-height: 100px;overflow-y: auto;border: 1px dotted cornflowerblue"></div>');
+                        for(var j=0;j<currentRoute.steps.length;j++){
+                            stepDiv.append('<p">'+currentRoute.steps[j].instruction+'</p>');
+                        }
+                        body.append(stepDiv);
+                    }
+                }
+            }
+            $(header).text(defaultHeaderIndex+routes);
+            $('#right').append(card.append(header).append(body))
+        }
+
+        var total = $('<div class="alert alert-success" role="alert"></div>');
+        var totalInfo = "总距离：";
+        if(totalLength>0){
+            totalInfo = totalInfo+transformLength(totalLength)+"  预计耗时:"+transformTime(totalTime);
+        }else{
+            totalInfo = totalInfo+"0米"
+        }
+        total.text(totalInfo);
+        $('#right').append(total);
+    }
+
+    //计算时间
+    var transformTime = function (target) {
+        var result = "";
+        var hour = parseInt(target/(60*60));
+        var min = parseInt(target/60)+1;
+        if(hour>0){
+            result+=(hour+"h");
+        }
+        if(min>0){
+            result+=(min+"m");
+        }
+        return result;
+    };
+
+    //计算距离
+    var transformLength = function (target) {
+        var result = "";
+        var km = parseInt(target/1000);
+        var m = target%1000;
+        if(km>0){
+            result+=(km+"公里");
+        }
+        if(m>0){
+            result+=(m+"米");
+        }
+        return result;
+    };
+
+</script>
+</html>
